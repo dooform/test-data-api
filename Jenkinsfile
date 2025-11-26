@@ -3,13 +3,12 @@ pipeline {
 
     environment {
         GO111MODULE = 'on'
-        // --- Configuration ---
-        // Replace with your actual server details or set as Jenkins Global Env Vars
-        SERVER_IP = '192.168.1.100' 
-        SERVER_USER = 'ubuntu'
-        REMOTE_DIR = '/opt/test-data-api'
-        // The ID of the credentials stored in Jenkins (Manage Jenkins -> Credentials)
-        SSH_CRED_ID = 'my-ssh-key-id' 
+        // We are now using variables set in Jenkins "Global properties" or Job configuration
+        // Required variables:
+        // - SERVER_IP
+        // - SERVER_USER
+        // - REMOTE_DIR
+        // - SSH_CRED_ID
     }
 
     triggers {
@@ -44,23 +43,21 @@ pipeline {
         }
 
         stage('Deploy') {
-            // Only deploy when changes are pushed to the 'main' branch
-            when {
-                branch 'main'
-            }
             steps {
                 script {
+                    // Check if variables are set
+                    if (!env.SERVER_IP || !env.SSH_CRED_ID || !env.SERVER_USER || !env.REMOTE_DIR) {
+                        error "Missing required environment variables: SERVER_IP, SSH_CRED_ID, SERVER_USER, REMOTE_DIR"
+                    }
+
                     echo "Deploying to ${SERVER_IP}..."
                     
                     // Use sshagent to handle authentication securely
                     sshagent([SSH_CRED_ID]) {
-                        // 1. Stop the service (Optional, ensures binary isn't locked)
-                        // sh "ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'sudo systemctl stop test-data-api'"
-
-                        // 2. Upload the new binary
+                        // 1. Upload the new binary
                         sh "scp -o StrictHostKeyChecking=no test-data-api ${SERVER_USER}@${SERVER_IP}:${REMOTE_DIR}/"
 
-                        // 3. Restart the service to pick up changes
+                        // 2. Restart the service to pick up changes
                         sh "ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'sudo systemctl restart test-data-api'"
                     }
                 }
