@@ -54,11 +54,24 @@ pipeline {
                     
                     // Use sshagent to handle authentication securely
                     sshagent([SSH_CRED_ID]) {
-                        // 1. Upload the new binary
+                        // 1. Prepare the Service File dynamically
+                        // Replace placeholders with actual Jenkins Environment Variables
+                        sh "sed 's/REPLACE_ME_USER/${SERVER_USER}/g' test-data-api.service > test-data-api.service.tmp"
+
+                        // 2. Upload the Service File (Requires sudo on server usually, so we copy to tmp first)
+                        sh "scp -o StrictHostKeyChecking=no test-data-api.service.tmp ${SERVER_USER}@${SERVER_IP}:/tmp/test-data-api.service"
+                        
+                        // Move it to the correct place and set permissions (Runs on Server)
+                        sh "ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'sudo mv /tmp/test-data-api.service /etc/systemd/system/test-data-api.service && sudo systemctl daemon-reload'"
+
+                        // 3. Upload the Binary
                         sh "scp -o StrictHostKeyChecking=no test-data-api ${SERVER_USER}@${SERVER_IP}:${REMOTE_DIR}/"
 
-                        // 2. Restart the service to pick up changes
+                        // 4. Restart the service
                         sh "ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'sudo systemctl restart test-data-api'"
+                        
+                        // Cleanup local tmp file
+                        sh "rm test-data-api.service.tmp"
                     }
                 }
             }

@@ -4,8 +4,8 @@ After=network.target postgresql.service
 
 [Service]
 # Change these to the user and group running the application
-User=ubuntu
-Group=ubuntu
+User=REPLACE_ME_USER
+Group=REPLACE_ME_USER
 
 # Set the working directory to where the binary and .env file are located
 # Ensure the .env file exists in this directory if the app relies on it
