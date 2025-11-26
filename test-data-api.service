@@ -1,0 +1,32 @@
+[Unit]
+Description=Test Data API Service
+After=network.target postgresql.service
+
+[Service]
+# Change these to the user and group running the application
+User=ubuntu
+Group=ubuntu
+
+# Set the working directory to where the binary and .env file are located
+# Ensure the .env file exists in this directory if the app relies on it
+WorkingDirectory=/opt/test-data-api
+
+# Path to the binary
+ExecStart=/opt/test-data-api/test-data-api
+
+# Restart policy
+Restart=always
+RestartSec=5
+
+# Environment variables
+# You can load them from a file (ensure code supports loading from CWD or specific path)
+# The application uses godotenv, so it will look for .env in WorkingDirectory
+# EnvironmentFile=/opt/test-data-api/.env
+
+# Or set them directly here
+# Environment=GIN_MODE=release
+# Environment=DB_HOST=localhost
+# Environment=DB_PORT=5432
+
+[Install]
+WantedBy=multi-user.target
