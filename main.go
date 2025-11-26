@@ -26,6 +26,6 @@ func main() {
 	r.GET("/query", handlers.QueryBoundaries)
 	r.GET("/search", handlers.SearchBoundaries)
 
-	fmt.Println("Server is running on port 7242")
-	r.Run(":7242")
+	fmt.Println("Server is running on localhost:7242")
+	r.Run("127.0.0.1:7242")
 }
