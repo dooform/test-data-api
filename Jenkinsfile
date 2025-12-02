@@ -9,6 +9,12 @@ pipeline {
         // - SERVER_USER
         // - REMOTE_DIR
         // - SSH_CRED_ID
+        // - DB_HOST
+        // - DB_USER
+        // - DB_PASSWORD
+        // - DB_NAME
+        // - DB_PORT
+        // - CORS_ORIGINS
     }
 
     triggers {
@@ -49,6 +55,9 @@ pipeline {
                     if (!env.SERVER_IP || !env.SSH_CRED_ID || !env.SERVER_USER || !env.REMOTE_DIR) {
                         error "Missing required environment variables: SERVER_IP, SSH_CRED_ID, SERVER_USER, REMOTE_DIR"
                     }
+                    if (!env.DB_HOST || !env.DB_USER || !env.DB_PASSWORD || !env.DB_NAME || !env.DB_PORT || !env.CORS_ORIGINS) {
+                        error "Missing required environment variables: DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT, CORS_ORIGINS"
+                    }
 
                     echo "Deploying to ${SERVER_IP}..."
                     
@@ -67,7 +76,17 @@ pipeline {
                         // 3. Upload the Binary
                         sh "scp -o StrictHostKeyChecking=no test-data-api ${SERVER_USER}@${SERVER_IP}:${REMOTE_DIR}/"
 
-                        // 4. Restart the service
+                        // 4. Create .env file on server
+                        sh """ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'cat > ${REMOTE_DIR}/.env << EOF
+DB_HOST=${DB_HOST}
+DB_USER=${DB_USER}
+DB_PASSWORD=${DB_PASSWORD}
+DB_NAME=${DB_NAME}
+DB_PORT=${DB_PORT}
+CORS_ORIGINS=${CORS_ORIGINS}
+EOF'"""
+
+                        // 5. Restart the service
                         sh "ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'sudo systemctl restart test-data-api'"
                         
                         // Cleanup local tmp file

@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -12,6 +13,14 @@ func LoadConfig() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
+}
+
+func GetCORSOrigins() []string {
+	origins := os.Getenv("CORS_ORIGINS")
+	if origins == "" || origins == "*" {
+		return nil // nil means allow all origins
+	}
+	return strings.Split(origins, ",")
 }
 
 func GetDSN() string {
