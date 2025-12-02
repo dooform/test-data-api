@@ -14,7 +14,8 @@ pipeline {
         // - DB_PASSWORD
         // - DB_NAME
         // - DB_PORT
-        // - CORS_ORIGINS
+        // - SHARED_ALLOWED_ORIGIN_1
+        // - SHARED_ALLOWED_ORIGIN_2
     }
 
     triggers {
@@ -55,8 +56,11 @@ pipeline {
                     if (!env.SERVER_IP || !env.SSH_CRED_ID || !env.SERVER_USER || !env.REMOTE_DIR) {
                         error "Missing required environment variables: SERVER_IP, SSH_CRED_ID, SERVER_USER, REMOTE_DIR"
                     }
-                    if (!env.DB_HOST || !env.DB_USER || !env.DB_PASSWORD || !env.DB_NAME || !env.DB_PORT || !env.CORS_ORIGINS) {
-                        error "Missing required environment variables: DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT, CORS_ORIGINS"
+                    if (!env.DB_HOST || !env.DB_USER || !env.DB_PASSWORD || !env.DB_NAME || !env.DB_PORT) {
+                        error "Missing required environment variables: DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT"
+                    }
+                    if (!env.SHARED_ALLOWED_ORIGIN_1 || !env.SHARED_ALLOWED_ORIGIN_2) {
+                        error "Missing required environment variables: SHARED_ALLOWED_ORIGIN_1, SHARED_ALLOWED_ORIGIN_2"
                     }
 
                     echo "Deploying to ${SERVER_IP}..."
@@ -83,7 +87,7 @@ DB_USER=${DB_USER}
 DB_PASSWORD=${DB_PASSWORD}
 DB_NAME=${DB_NAME}
 DB_PORT=${DB_PORT}
-CORS_ORIGINS=${CORS_ORIGINS}
+CORS_ORIGINS=${SHARED_ALLOWED_ORIGIN_1},${SHARED_ALLOWED_ORIGIN_2}
 EOF'"""
 
                         // 5. Restart the service
