@@ -68,7 +68,7 @@ pipeline {
                             string(credentialsId: 'shared-db-port', variable: 'DB_PORT'),
                             string(credentialsId: 'shared-db-user', variable: 'DB_USER'),
                             string(credentialsId: 'shared-db-password', variable: 'DB_PASSWORD'),
-                            string(credentialsId: 'test-data-api-db-name', variable: 'DB_NAME'),
+                            string(credentialsId: 'placeholder-db-name', variable: 'DB_NAME'),
                             string(credentialsId: 'shared-allowed-origin-1', variable: 'ALLOWED_ORIGIN_1'),
                             string(credentialsId: 'shared-allowed-origin-2', variable: 'ALLOWED_ORIGIN_2')
                         ]) {
