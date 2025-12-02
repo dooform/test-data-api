@@ -3,19 +3,9 @@ pipeline {
 
     environment {
         GO111MODULE = 'on'
-        // We are now using variables set in Jenkins "Global properties" or Job configuration
-        // Required variables:
-        // - SERVER_IP
-        // - SERVER_USER
-        // - REMOTE_DIR
-        // - SSH_CRED_ID
-        // - DB_HOST
-        // - DB_USER
-        // - DB_PASSWORD
-        // - DB_NAME
-        // - DB_PORT
-        // - SHARED_ALLOWED_ORIGIN_1
-        // - SHARED_ALLOWED_ORIGIN_2
+        SERVICE_NAME = 'test-data-api'
+        BINARY_NAME = 'test-data-api'
+        REMOTE_DIR = '/opt/test-data-api'
     }
 
     triggers {
@@ -44,57 +34,61 @@ pipeline {
 
         stage('Build') {
             steps {
-                // Build for Linux (Cross-compile if Jenkins is not on Linux)
-                sh 'CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o test-data-api'
+                sh "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o ${BINARY_NAME}"
             }
         }
 
         stage('Deploy') {
             steps {
                 script {
-                    // Check if variables are set
                     if (!env.SERVER_IP || !env.SSH_CRED_ID || !env.SERVER_USER || !env.REMOTE_DIR) {
                         error "Missing required environment variables: SERVER_IP, SSH_CRED_ID, SERVER_USER, REMOTE_DIR"
                     }
-                    if (!env.DB_HOST || !env.DB_USER || !env.DB_PASSWORD || !env.DB_NAME || !env.DB_PORT) {
-                        error "Missing required environment variables: DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT"
-                    }
-                    if (!env.SHARED_ALLOWED_ORIGIN_1 || !env.SHARED_ALLOWED_ORIGIN_2) {
-                        error "Missing required environment variables: SHARED_ALLOWED_ORIGIN_1, SHARED_ALLOWED_ORIGIN_2"
-                    }
 
-                    echo "Deploying to ${SERVER_IP}..."
-                    
-                    // Use sshagent to handle authentication securely
                     sshagent([SSH_CRED_ID]) {
-                        // 1. Prepare the Service File dynamically
-                        // Replace placeholders with actual Jenkins Environment Variables
-                        sh "sed 's/REPLACE_ME_USER/${SERVER_USER}/g' test-data-api.service > test-data-api.service.tmp"
+                        // Create remote directory
+                        sh "ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'mkdir -p ${REMOTE_DIR}'"
 
-                        // 2. Upload the Service File (Requires sudo on server usually, so we copy to tmp first)
-                        sh "scp -o StrictHostKeyChecking=no test-data-api.service.tmp ${SERVER_USER}@${SERVER_IP}:/tmp/test-data-api.service"
-                        
-                        // Move it to the correct place and set permissions (Runs on Server)
-                        sh "ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'sudo mv /tmp/test-data-api.service /etc/systemd/system/test-data-api.service && sudo systemctl daemon-reload'"
+                        // Stop service if running (ignore errors if not running)
+                        sh "ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'sudo systemctl stop ${SERVICE_NAME} || true'"
 
-                        // 3. Upload the Binary
-                        sh "scp -o StrictHostKeyChecking=no test-data-api ${SERVER_USER}@${SERVER_IP}:${REMOTE_DIR}/"
+                        // Prepare service file
+                        sh "sed 's/REPLACE_ME_USER/${SERVER_USER}/g' ${SERVICE_NAME}.service > ${SERVICE_NAME}.service.tmp"
 
-                        // 4. Create .env file on server
-                        sh """ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'cat > ${REMOTE_DIR}/.env << EOF
+                        // Upload service file
+                        sh "scp -o StrictHostKeyChecking=no ${SERVICE_NAME}.service.tmp ${SERVER_USER}@${SERVER_IP}:/tmp/${SERVICE_NAME}.service"
+                        sh "ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'sudo mv /tmp/${SERVICE_NAME}.service /etc/systemd/system/${SERVICE_NAME}.service && sudo systemctl daemon-reload'"
+
+                        // Upload binary
+                        sh "scp -o StrictHostKeyChecking=no ${BINARY_NAME} ${SERVER_USER}@${SERVER_IP}:${REMOTE_DIR}/"
+
+                        // Inject env vars from Jenkins credentials
+                        withCredentials([
+                            string(credentialsId: 'shared-db-host', variable: 'DB_HOST'),
+                            string(credentialsId: 'shared-db-port', variable: 'DB_PORT'),
+                            string(credentialsId: 'shared-db-user', variable: 'DB_USER'),
+                            string(credentialsId: 'shared-db-password', variable: 'DB_PASSWORD'),
+                            string(credentialsId: 'test-data-api-db-name', variable: 'DB_NAME'),
+                            string(credentialsId: 'shared-allowed-origin-1', variable: 'ALLOWED_ORIGIN_1'),
+                            string(credentialsId: 'shared-allowed-origin-2', variable: 'ALLOWED_ORIGIN_2')
+                        ]) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'cat > ${REMOTE_DIR}/.env << EOF
 DB_HOST=${DB_HOST}
+DB_PORT=${DB_PORT}
 DB_USER=${DB_USER}
 DB_PASSWORD=${DB_PASSWORD}
 DB_NAME=${DB_NAME}
-DB_PORT=${DB_PORT}
-CORS_ORIGINS=${SHARED_ALLOWED_ORIGIN_1},${SHARED_ALLOWED_ORIGIN_2}
-EOF'"""
+CORS_ORIGINS=${ALLOWED_ORIGIN_1},${ALLOWED_ORIGIN_2}
+EOF'
+                            """
+                        }
 
-                        // 5. Restart the service
-                        sh "ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'sudo systemctl restart test-data-api'"
-                        
-                        // Cleanup local tmp file
-                        sh "rm test-data-api.service.tmp"
+                        // Restart service
+                        sh "ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'sudo systemctl restart ${SERVICE_NAME}'"
+
+                        // Cleanup
+                        sh "rm ${SERVICE_NAME}.service.tmp"
                     }
                 }
             }
@@ -102,11 +96,7 @@ EOF'"""
     }
 
     post {
-        success {
-            echo 'Pipeline completed successfully.'
-        }
-        failure {
-            echo 'Pipeline failed.'
-        }
+        success { echo 'Pipeline completed successfully.' }
+        failure { echo 'Pipeline failed.' }
     }
 }
