@@ -17,8 +17,8 @@ func LoadConfig() {
 
 func GetCORSOrigins() []string {
 	origins := os.Getenv("CORS_ORIGINS")
-	if origins == "" || origins == "*" {
-		return nil // nil means allow all origins
+	if origins == "" {
+		log.Fatal("CORS_ORIGINS environment variable is required")
 	}
 	return strings.Split(origins, ",")
 }

@@ -19,12 +19,9 @@ func main() {
 
 	// Add CORS middleware
 	corsConfig := cors.DefaultConfig()
-	origins := config.GetCORSOrigins()
-	if origins == nil {
-		corsConfig.AllowAllOrigins = true
-	} else {
-		corsConfig.AllowOrigins = origins
-	}
+	corsConfig.AllowOrigins = config.GetCORSOrigins()
+	corsConfig.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
+	corsConfig.AllowCredentials = true
 	r.Use(cors.New(corsConfig))
 
 	r.GET("/list", handlers.ListBoundaries)
